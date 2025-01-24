@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/openshift/api/machine/v1beta1"
 	"github.com/openshift/client-go/machine/clientset/versioned"
@@ -80,6 +81,7 @@ func scaleDown(clientset *kubernetes.Clientset, machineClientSet *versioned.Clie
 		log.Printf("Failed to mark node %s, skipping scaling down MachineSet", machineName)
 		return
 	}
+	time.Sleep(1 * time.Minute)
 	//there should be waiting for workers
 	if !markMachine(machineClientSet, machineName, namespace) {
 		log.Printf("Failed to mark machine %s, skipping scaling down MachineSet", machineName)
