@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"github.com/openshift/api/machine/v1beta1"
@@ -73,8 +74,13 @@ func markMachine(clientset *versioned.Clientset, machineName, namespace string) 
 }
 
 // scaleDown reduces the replica count of a MachineSet in OpenShift
-func scaleDown(machineClientSet *versioned.Clientset, k8sClient client.Client, machinesetName, namespace, machineName string) {
+func scaleDown(clientset *kubernetes.Clientset, machineClientSet *versioned.Clientset, k8sClient client.Client, machinesetName, namespace, machineName string) {
 	// Mark the machine for scaling down
+	if !markNode(clientset, machineName) {
+		log.Printf("Failed to mark node %s, skipping scaling down MachineSet", machineName)
+		return
+	}
+	//there should be waiting for workers
 	if !markMachine(machineClientSet, machineName, namespace) {
 		log.Printf("Failed to mark machine %s, skipping scaling down MachineSet", machineName)
 		return
@@ -105,4 +111,27 @@ func scaleDown(machineClientSet *versioned.Clientset, k8sClient client.Client, m
 	}
 
 	log.Printf("Successfully scaled down MachineSet %s", machinesetName)
+}
+
+func markNode(clientset *kubernetes.Clientset, nodeName string) bool {
+	// Retrieve the node object
+	// Node name to cordon
+
+	// Get the node object
+	node, err := clientset.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Fatalf("Failed to get node %s: %v", nodeName, err)
+	}
+
+	// Mark the node as unschedulable (cordon)
+	node.Spec.Unschedulable = true
+
+	// Update the node status
+	_, err = clientset.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
+	if err != nil {
+		log.Fatalf("Failed to update node %s: %v", nodeName, err)
+	}
+
+	fmt.Printf("Node %s has been cordoned (unschedulable).\n", nodeName)
+	return true
 }
